@@ -195,7 +195,6 @@ module ISO8583
     def to_b
       raise ISO8583Exception.new "no MTI set!" unless mti
       mti_enc = self.class._mti_format.encode(mti)
-      p mti_enc
       str_body="".force_encoding('ASCII-8BIT')
       _body.map {|b| str_body+=b.force_encoding('ASCII-8BIT')} 
       mti_enc << str_body
@@ -216,6 +215,11 @@ module ISO8583
         str += ("%03d %#{_max_name}s : %s\n" % [bmp_num, _bmp.name, _bmp.value])
       }
       str
+    end
+
+    def lengths
+      sections = _body
+      {header: sections[1].length, message: sections[2].length, bitmap: sections[0].length, all: to_b.length}
     end
 
 
