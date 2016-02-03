@@ -119,6 +119,7 @@ module ISO8583
       # bmp number | bmp name | field en/decoders | values
       # which are set in this message.
       @values = {}
+      @headers = {}
       self.mti = mti if mti
     end
 
@@ -147,12 +148,24 @@ module ISO8583
     #    mes[2]=47474747                          # bmp 2 is generally the PAN
     #    mes["Primary Account Number"]=47474747   # if thats what you called the field in Message.bmp.
     def []=(key, value)
-      if value.nil?
-        @values.delete(key)
+      if _get_definition key
+        if value.nil?
+          @values.delete(key)
+        else
+          bmp_def              = _get_definition key
+          bmp_def.value        = value
+          @values[bmp_def.bmp] = bmp_def
+        end
+      elsif _get_hdr_definition key
+        if value.nil?
+          @headers.delete(key)
+        else
+          hdr_def              = _get_hdr_definition key
+          hdr_def.value        = value
+          @headers[hdr_def.bmp] = hdr_def
+        end
       else
-        bmp_def              = _get_definition key
-        bmp_def.value        = value
-        @values[bmp_def.bmp] = bmp_def
+        raise ISO8583Exception.new "no definition for field: #{key}"
       end
     end
 
@@ -165,15 +178,24 @@ module ISO8583
     #    mes[2] # bmp 2 is generally the PAN
     #    mes["Primary Account Number"] # if thats what you called the field in Message.bmp.
     def [](key)
-      bmp_def = _get_definition key
-      bmp     = @values[bmp_def.bmp]
-      bmp ? bmp.value : nil
+      if _get_definition key
+        bmp_def = _get_definition key
+        bmp     = @values[bmp_def.bmp]
+        bmp ? bmp.value : nil
+      elsif _get_hdr_definition key
+        hdr_def = _get_hdr_definition key
+        bmp     = @headers[hdr_def.bmp]
+        bmp ? bmp.value : nil
+      else
+        raise ISO8583Exception.new "no definition for field: #{key}"
+      end
     end
 
     # Retrieve the byte representation of the bitmap.
     def to_b
       raise ISO8583Exception.new "no MTI set!" unless mti
-      mti_enc = self.class._mti_format.encode(mti) 
+      mti_enc = self.class._mti_format.encode(mti)
+      p mti_enc
       str_body="".force_encoding('ASCII-8BIT')
       _body.map {|b| str_body+=b.force_encoding('ASCII-8BIT')} 
       mti_enc << str_body
@@ -205,18 +227,40 @@ module ISO8583
     def _body
       bitmap  = Bitmap.new
       message = "".force_encoding('ASCII-8BIT')
+      header = "".force_encoding('ASCII-8BIT')
       @values.keys.sort.each do |bmp_num|
         bitmap.set(bmp_num)
         enc_value = @values[bmp_num].encode
         message << enc_value
       end
-      [ bitmap.to_bytes, message ]
+      @headers.keys.sort.each do |bmp_num|
+        enc_value = @headers[bmp_num].encode
+        header << enc_value
+      end
+      [ bitmap.to_bytes, header, message ]
+    end
+
+    def _hdr_body
+      message = "".force_encoding('ASCII-8BIT')
+      @headers.keys.sort.each do |bmp_num|
+        enc_value = @headers[bmp_num].encode
+        message << enc_value
+      end
+      [ message ]
     end
 
     def _get_definition(key) #:nodoc:
       b = self.class._definitions[key]
       unless b
-        raise ISO8583Exception.new "no definition for field: #{key}"
+        return nil
+      end
+      b.dup
+    end
+
+    def _get_hdr_definition(key) #:nodoc:
+      b = self.class._hdr_definitions[key]
+      unless b
+        return nil
       end
       b.dup
     end
@@ -312,6 +356,41 @@ module ISO8583
         @defs[name] = bmp_def
       end
 
+      # Define a headers
+      # ===Params:
+      # * hdr   : bitmap number
+      # * name  : human readable form
+      # * field : field for encoding/decoding
+      # * opts  : options to pass to the field, e.g. length for fxed len fields.
+      #
+      # ===Example
+      #
+      #    class MyMessage < Message
+      #      hdr 'H1', "Header Length", B, :length => 1
+      #      (...)
+      #    end
+      #
+      # creates a class MyMessage that allows for a header 1 which
+      # is named "Header Length" and encoded by an B Field. The
+      # length of the value is 1. This class may be used as follows:
+      #
+      #    mes = MyMessage.new
+      #    mes.hdr['H1'] = 4
+      #
+      def hdr(hdr, name, field, opts = nil)
+        @hdr_defs ||= {}
+
+        field = field.dup
+        field.name = name
+        field.bmp  = hdr
+        _handle_opts(field, opts) if opts
+
+        hdr_def = BMP.new hdr, name, field
+
+        @hdr_defs[hdr]  = hdr_def
+        @hdr_defs[name] = hdr_def
+      end
+
       # Create an alias to access bitmaps directly using a method.
       # Example:
       #     class MyMessage < Message
@@ -376,6 +455,10 @@ module ISO8583
       #
       def _definitions
         @defs
+      end
+
+      def _hdr_definitions
+        @hdr_defs
       end
 
       # Returns the field definition to format the mti.
