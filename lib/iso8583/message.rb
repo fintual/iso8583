@@ -218,7 +218,7 @@ module ISO8583
     end
 
     def lengths
-      sections = _body
+      sections = _body(true)
       {header: sections[1].length, message: sections[2].length, bitmap: sections[0].length, all: to_b.length}
     end
 
@@ -228,20 +228,29 @@ module ISO8583
     
     # Returns an array of two byte arrays:
     # [bitmap_bytes, message_bytes]
-    def _body
+    def _body(printing = false)
       bitmap  = Bitmap.new
       message = "".force_encoding('ASCII-8BIT')
       header = "".force_encoding('ASCII-8BIT')
+      p 'Header' if printing
+      @headers.keys.sort.each do |bmp_num|
+        enc_value = @headers[bmp_num].encode
+        p "#{bmp_num}: #{enc_value.length} #{enc_value}".force_encoding('ASCII-8BIT') if printing
+        header << enc_value
+      end
+      p "Total header length: #{header.length}" if printing
+      p 'Message' if printing
       @values.keys.sort.each do |bmp_num|
         bitmap.set(bmp_num)
         enc_value = @values[bmp_num].encode
+        p "#{bmp_num}: #{enc_value.length} #{enc_value}".force_encoding('ASCII-8BIT') if printing
         message << enc_value
       end
-      @headers.keys.sort.each do |bmp_num|
-        enc_value = @headers[bmp_num].encode
-        header << enc_value
-      end
-      [ bitmap.to_bytes, header, message ]
+      p "Total bmp length: #{message.length}" if printing
+      bitmap_bytes = bitmap.to_bytes
+      p "Total bitmap length: #{bitmap_bytes.length}" if printing
+      p "Total length: #{to_b.length}" if printing
+      [ bitmap_bytes, header, message ]
     end
 
     def _hdr_body
