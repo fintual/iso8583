@@ -10,4 +10,17 @@ module ISO8583
   require "iso8583/message"
   require "iso8583/util"
   require "iso8583/version"
+  require "iso8583/configuration"
+
+  class << self
+    attr_accessor :configuration
+  end
+
+  def self.configuration
+    @configuration ||= Configuration.new
+  end
+
+  def self.configure
+    yield(configuration)
+  end
 end

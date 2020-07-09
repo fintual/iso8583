@@ -148,7 +148,7 @@ module ISO8583
           bmp_def.value        = value
           @values[bmp_def.bmp] = bmp_def
         end
-      elsif _get_hdr_definition key
+      elsif ISO8583.configuration.use_header && _get_hdr_definition(key)
         if value.nil?
           @headers.delete(key)
         else
@@ -174,7 +174,7 @@ module ISO8583
         bmp_def = _get_definition key
         bmp     = @values[bmp_def.bmp]
         bmp ? bmp.value : nil
-      elsif _get_hdr_definition key
+      elsif ISO8583.configuration.use_header && _get_hdr_definition(key)
         hdr_def = _get_hdr_definition key
         bmp     = @headers[hdr_def.bmp]
         bmp ? bmp.value : nil
@@ -184,9 +184,19 @@ module ISO8583
     end
 
     # Retrieve the byte representation of the bitmap.
-    def to_b     
-      _body.reduce("".force_encoding('ASCII-8BIT')) do |cum, section|
-        cum += section.force_encoding('ASCII-8BIT')
+    def to_b
+      order = {
+        mti: ISO8583.configuration.mti_position,
+        bitmap: ISO8583.configuration.bitmap_position,
+        message: ISO8583.configuration.message_position
+      }
+      order[:header] = ISO8583.configuration.header_position if ISO8583.configuration.use_header
+      
+      sections = _body
+      order.sort_by { |_k, v| v }
+           .map { |k, _v| k }
+           .reduce("".force_encoding('ASCII-8BIT')) do |cum, section|
+        cum += sections[section].force_encoding('ASCII-8BIT')
       end
     end
 
@@ -209,14 +219,13 @@ module ISO8583
 
     # Returns lengths of each part of the message.
     def lengths
-      sections = _body
-      {
-        header: sections[0].length,
-        mti: sections[1].length,
-        message: sections[2].length,
-        bitmap: sections[0].length,
-        all: to_b.length
-      }
+      ret = Hash.bew
+      _body.map do |key, val|
+        ret[key] == val.length
+      end
+
+      ret[:all] = to_b.length
+      ret
     end
 
     # METHODS starting with an underscore are meant for
@@ -226,14 +235,25 @@ module ISO8583
     # [header_bytes, mti_bytes, bitmap_bytes, message_bytes]
     def _body
       raise ISO8583Exception.new "no MTI set!" unless mti
-      mti_enc = self.class._mti_format.encode(mti)
 
+      ret = Hash.new
+      ret[:mti] = self.class._mti_format.encode(mti)
+      ret[:header] = _header_body if ISO8583.configuration.use_header
+
+      ret.merge(_bitmap_n_message_body)
+    end
+
+    def _header_body
       header = "".force_encoding('ASCII-8BIT')
       @headers.keys.sort.each do |bmp_num|
         enc_value = @headers[bmp_num].encode
         header << enc_value
       end
 
+      header
+    end
+
+    def _bitmap_n_message_body
       bitmap  = Bitmap.new
       message = "".force_encoding('ASCII-8BIT')
       @values.keys.sort.each do |bmp_num|
@@ -243,31 +263,20 @@ module ISO8583
       end
       bitmap_bytes = bitmap.to_bytes
 
-      [ header, mti_enc, bitmap_bytes, message ]
-    end
-
-    def _hdr_body
-      message = "".force_encoding('ASCII-8BIT')
-      @headers.keys.sort.each do |bmp_num|
-        enc_value = @headers[bmp_num].encode
-        message << enc_value
-      end
-      [ message ]
+      { bitmap: bitmap_bytes, message: message }
     end
 
     def _get_definition(key) #:nodoc:
       b = self.class._definitions[key]
-      unless b
-        return nil
-      end
+      return nil unless b
+
       b.dup
     end
 
     def _get_hdr_definition(key) #:nodoc:
       b = self.class._hdr_definitions[key]
-      unless b
-        return nil
-      end
+      return nil unless b
+
       b.dup
     end
 
