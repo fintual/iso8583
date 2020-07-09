@@ -204,16 +204,26 @@ module ISO8583
     # message.
     def to_s
       _mti_name = _get_mti_definition(mti)[1]
-      str = "MTI:#{mti} (#{_mti_name})\n\n"
-      _max = @values.values.max {|a,b|
+      str = "MTI: #{mti} (#{_mti_name})\n\n"
+      _max = (@values.values + @headers.values).max do |a,b|
         a.name.length <=> b.name.length
-      }
+      end
       _max_name = _max.name.length
 
-      @values.keys.sort.each{|bmp_num|
-        _bmp = @values[bmp_num]
-        str += ("%03d %#{_max_name}s : %s\n" % [bmp_num, _bmp.name, _bmp.value])
-      }
+      if ISO8583.configuration.use_header
+        str += "HEADER\n"
+        @headers.sort.each do |key, value|
+          _bmp = @headers[key]
+          str += ("%#{3}s %#{_max_name}s : %s\n" % [key, value.name, value.value])
+        end
+        str += "\n"
+      end
+
+      str += "MESSAGE\n"
+      @values.sort.each do |key, value|
+        str += ("%03d %#{_max_name}s : %s\n" % [key, value.name, value.value])
+      end
+
       str
     end
 
@@ -245,21 +255,19 @@ module ISO8583
 
     def _header_body
       header = "".force_encoding('ASCII-8BIT')
-      @headers.keys.sort.each do |bmp_num|
-        enc_value = @headers[bmp_num].encode
-        header << enc_value
+      @headers.sort.each do |key, value|
+        header << value.encode
       end
 
       header
     end
 
     def _bitmap_n_message_body
-      bitmap  = Bitmap.new
+      bitmap = Bitmap.new
       message = "".force_encoding('ASCII-8BIT')
-      @values.keys.sort.each do |bmp_num|
-        bitmap.set(bmp_num)
-        enc_value = @values[bmp_num].encode
-        message << enc_value
+      @values.sort.each do |key, value|
+        bitmap.set(key)
+        message << value.encode
       end
       bitmap_bytes = bitmap.to_bytes
 

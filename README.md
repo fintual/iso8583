@@ -67,12 +67,12 @@ module ISO8583
       super(mti)
 
 			# setup default header values
-      @headers['H0'] = "ISO"
-      @headers['H1'] = "03"
-      @headers['H2'] = "20"
-      @headers['H3'] = "000"
-      @headers['H4'] = "0"
-      @headers['H5'] = "0"
+      self['H0'] = "ISO"
+      self['H1'] = "03"
+      self['H2'] = "20"
+      self['H3'] = "000"
+      self['H4'] = "0"
+      self['H5'] = "0"
     end
   end
 end
