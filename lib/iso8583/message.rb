@@ -77,11 +77,6 @@ module ISO8583
   #
   #     mes = MyMessage.new 1100 
   #     mes[2]= 474747474747
-  #     # Alternatively
-  #     mes["Primary Account Number (PAN)"]= 4747474747
-  #     mes[3] = 1234 # padding is added by the Field en/decoder
-  #     mes["Amount (Transaction)"] = 100
-  #     mes[6] = 200
   #
   # the convenience method bmp_alias may be used in defining the class in
   # order to provide direct access to fields using methods:
@@ -100,8 +95,6 @@ module ISO8583
   #     puts mes.pan
   #     # Identical functionality to:
   #     mes[2]= 474747474747
-  #     # or:
-  #     mes["Primary Account Number (PAN)"]= 4747474747
   #
   # Most of the work in implementing a new set of message type lays in
   # figuring out the correct fields to use defining the Message class via
@@ -140,13 +133,12 @@ module ISO8583
       @mti = num
     end
     
-    # Set a field in this message, `key` is either the
-    # bmp number or it's name.
+    # Set a field or header in this message, `key` is the bmp number or header key
     # ===Example
     #
     #    mes = BlaBlaMessage.new
     #    mes[2]=47474747                          # bmp 2 is generally the PAN
-    #    mes["Primary Account Number"]=47474747   # if thats what you called the field in Message.bmp.
+    #    mes['H1']=10                             # set header H1
     def []=(key, value)
       if _get_definition key
         if value.nil?
@@ -169,14 +161,14 @@ module ISO8583
       end
     end
 
-    # Retrieve the decoded value of the contents of a bitmap
-    # described either by the bitmap number or name.
+    # Retrieve the decoded value of the contents of a bitmap or header
+    # described either by the bitmap number or header key.
     #
     # ===Example
     #
     #    mes = BlaBlaMessage.parse someMessageBytes
     #    mes[2] # bmp 2 is generally the PAN
-    #    mes["Primary Account Number"] # if thats what you called the field in Message.bmp.
+    #    mes['H1'] # header H1
     def [](key)
       if _get_definition key
         bmp_def = _get_definition key
@@ -192,12 +184,10 @@ module ISO8583
     end
 
     # Retrieve the byte representation of the bitmap.
-    def to_b
-      raise ISO8583Exception.new "no MTI set!" unless mti
-      mti_enc = self.class._mti_format.encode(mti)
-      str_body="".force_encoding('ASCII-8BIT')
-      _body.map {|b| str_body+=b.force_encoding('ASCII-8BIT')} 
-      mti_enc << str_body
+    def to_b     
+      _body.reduce("".force_encoding('ASCII-8BIT')) do |cum, section|
+        cum += section.force_encoding('ASCII-8BIT')
+      end
     end
 
     # Returns a nicely formatted representation of this
@@ -217,40 +207,43 @@ module ISO8583
       str
     end
 
+    # Returns lengths of each part of the message.
     def lengths
-      sections = _body(true)
-      {header: sections[1].length, message: sections[2].length, bitmap: sections[0].length, all: to_b.length}
+      sections = _body
+      {
+        header: sections[0].length,
+        mti: sections[1].length,
+        message: sections[2].length,
+        bitmap: sections[0].length,
+        all: to_b.length
+      }
     end
-
 
     # METHODS starting with an underscore are meant for
     # internal use only ...
     
-    # Returns an array of two byte arrays:
-    # [bitmap_bytes, message_bytes]
-    def _body(printing = false)
-      bitmap  = Bitmap.new
-      message = "".force_encoding('ASCII-8BIT')
+    # Returns an array of four byte arrays:
+    # [header_bytes, mti_bytes, bitmap_bytes, message_bytes]
+    def _body
+      raise ISO8583Exception.new "no MTI set!" unless mti
+      mti_enc = self.class._mti_format.encode(mti)
+
       header = "".force_encoding('ASCII-8BIT')
-      p 'Header' if printing
       @headers.keys.sort.each do |bmp_num|
         enc_value = @headers[bmp_num].encode
-        p "#{bmp_num}: #{enc_value.length} #{enc_value}".force_encoding('ASCII-8BIT') if printing
         header << enc_value
       end
-      p "Total header length: #{header.length}" if printing
-      p 'Message' if printing
+
+      bitmap  = Bitmap.new
+      message = "".force_encoding('ASCII-8BIT')
       @values.keys.sort.each do |bmp_num|
         bitmap.set(bmp_num)
         enc_value = @values[bmp_num].encode
-        p "#{bmp_num}: #{enc_value.length} #{enc_value}".force_encoding('ASCII-8BIT') if printing
         message << enc_value
       end
-      p "Total bmp length: #{message.length}" if printing
       bitmap_bytes = bitmap.to_bytes
-      p "Total bitmap length: #{bitmap_bytes.length}" if printing
-      p "Total length: #{to_b.length}" if printing
-      [ bitmap_bytes, header, message ]
+
+      [ header, mti_enc, bitmap_bytes, message ]
     end
 
     def _hdr_body
@@ -366,7 +359,6 @@ module ISO8583
         bmp_def = BMP.new bmp, name, field
 
         @defs[bmp]  = bmp_def
-        @defs[name] = bmp_def
       end
 
       # Define a headers
@@ -401,7 +393,6 @@ module ISO8583
         hdr_def = BMP.new hdr, name, field
 
         @hdr_defs[hdr]  = hdr_def
-        @hdr_defs[name] = hdr_def
       end
 
       # Create an alias to access bitmaps directly using a method.
@@ -440,13 +431,24 @@ module ISO8583
       def parse(str)
         str = str.force_encoding('ASCII-8BIT')
         message = self.new
+
+        rest = str
+        _hdr_definitions.each do |key, bmp|
+          header_len = bmp.field.length
+          value = rest.slice!(0...header_len)
+          message[key] = value
+        end
+
         message.mti, rest = _mti_format.parse(str)
-        bmp,rest = Bitmap.parse(rest)
-        bmp.each {|bit|
+
+        bmp, rest = Bitmap.parse(rest)
+        bmp.each do |bit|
+          next if bit == 1
+
           bmp_def      = _definitions[bit]
           value, rest  = bmp_def.field.parse(rest)
           message[bit] = value
-        }
+        end
         message
       end
       
@@ -478,11 +480,6 @@ module ISO8583
       def _mti_format
         @mti_format
       end
-
-
-
-      # METHODS starting with an underscore are meant for
-      # internal use only ...
 
       # Modifies the field definitions of the fields passed
       # in through the `bmp` and `mti_format` class methods.
