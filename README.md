@@ -36,8 +36,7 @@ ISO8583.configure do |config|
   config.use_header = false # if you want to include header in your message
   config.mti_position = 0
   config.header_position = 1
-  config.bitmap_position = 2
-	config.message_position = 3
+  config.bitmap_and_message_position = 2
 end
 ```
 
@@ -50,10 +49,6 @@ module ISO8583
 
     hdr 'H0', "Flag de Comienzo de Mensaje", AN, length: 3
     hdr 'H1', "Indicador de Producto", N, length: 2
-    hdr 'H2', "Versión de Software", N, length: 2
-    hdr 'H3', "Estado", N, length: 3
-    hdr 'H4', "Origen del Requerimiento", N, length: 1
-    hdr 'H5', "Origen de la Respuesta", N, length: 1
 
     bmp 7, "Fecha de transmisión del mensaje", YYMMDDhhmmss
     bmp 11, "Numero de trace", N, length: 12
@@ -69,10 +64,6 @@ module ISO8583
       # setup default header values
       self['H0'] = "ISO"
       self['H1'] = "03"
-      self['H2'] = "20"
-      self['H3'] = "000"
-      self['H4'] = "0"
-      self['H5'] = "0"
     end
   end
 end

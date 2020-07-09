@@ -5,6 +5,10 @@ require 'test/unit'
 include ISO8583
 
 class MessageTest < Test::Unit::TestCase
+  def setup
+    ISO8583.configuration = Configuration.new
+  end
+
   def test_create_empty
     mes = BerlinMessage.new
     mes.mti = 1100
@@ -12,7 +16,6 @@ class MessageTest < Test::Unit::TestCase
     mes.pan = pan
     assert_equal pan, mes.pan
     assert_equal pan, mes[2]
-    assert_equal pan, mes["Primary Account Number (PAN)"]
     assert_equal "1100@\000\000\000\000\000\000\00012474747474747", mes.to_b
 
     mes = BerlinMessage.new
@@ -21,17 +24,7 @@ class MessageTest < Test::Unit::TestCase
     mes[2] = pan
     assert_equal pan, mes.pan
     assert_equal pan, mes[2]
-    assert_equal pan, mes["Primary Account Number (PAN)"]
     assert_equal "1110@\000\000\000\000\000\000\00012474747474747", mes.to_b
-
-    mes = BerlinMessage.new
-    mes.mti = 1420
-    pan = 474747474747
-    mes["Primary Account Number (PAN)"] = pan
-    assert_equal pan, mes.pan
-    assert_equal pan, mes[2]
-    assert_equal pan, mes["Primary Account Number (PAN)"]
-    assert_equal "1420@\000\000\000\000\000\000\00012474747474747", mes.to_b
   end
 
   def test_parse
@@ -93,8 +86,9 @@ class MessageTest < Test::Unit::TestCase
     mes[64] = "\xF0\xF0\xF0\xF0"
     
     expected = <<-END
-MTI:1814 (Network Management Request Response Issuer Gateway or Acquirer Gateway)
+MTI: 1814 (Network Management Request Response Issuer Gateway or Acquirer Gateway)
 
+MESSAGE
 002                      Primary Account Number (PAN) : 12341234
 003                                   Processing Code : 1111
 004                              Amount (Transaction) : 100
@@ -180,5 +174,47 @@ END
     assert_nothing_raised do
       mes.to_b
     end
+  end
+
+  def test_use_header
+    ISO8583.configure do |config|
+      config.use_header = true
+    end
+
+    mes = BerlinMessage.new 1100
+    mes.pan = 474747474747
+    mes['H0'] = "ISO"
+    mes['H1'] = 1
+
+    expected_bytes = "1100ISO01@\000\000\000\000\000\000\00012474747474747"
+    expected_text = <<-END
+MTI: 1100 (Authorization Request Acquirer Gateway)
+
+HEADER
+ H0                   Start Flag : ISO
+ H1             Software Version : 1
+
+MESSAGE
+002 Primary Account Number (PAN) : 474747474747
+END
+
+    assert_equal expected_bytes, mes.to_b
+    assert_equal expected_text, mes.to_s
+  end
+
+  def test_custom_order
+    ISO8583.configure do |config|
+      config.use_header = true
+      config.mti_position = 1
+      config.header_position = 0
+      config.bitmap_and_message_position = 2
+    end
+
+    mes = BerlinMessage.new 1100
+    mes.pan = 474747474747
+    mes['H0'] = "ISO"
+    mes['H1'] = 1
+
+    assert_equal "ISO011100@\000\000\000\000\000\000\00012474747474747", mes.to_b
   end
 end

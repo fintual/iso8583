@@ -23,6 +23,9 @@ module ISO8583
     mti 1804, "Network Management Request Acquirer Gateway or Issuer Gateway"
     mti 1814, "Network Management Request Response Issuer Gateway or Acquirer Gateway"
 
+    hdr 'H0', "Start Flag", AN, length: 3
+    hdr 'H1', "Software Version", N, length: 2
+
     bmp  2, "Primary Account Number (PAN)",               LLVAR_N,   :max    => 19
     bmp  3,  "Processing Code",                           N,         :length =>  6
     bmp  4,  "Amount (Transaction)",                      N,         :length => 12

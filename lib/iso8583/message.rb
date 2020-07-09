@@ -113,6 +113,8 @@ module ISO8583
       # which are set in this message.
       @values = {}
       @headers = {}
+      
+      @hdr_defs = {}
       self.mti = mti if mti
     end
 
@@ -144,16 +146,16 @@ module ISO8583
         if value.nil?
           @values.delete(key)
         else
-          bmp_def              = _get_definition key
-          bmp_def.value        = value
+          bmp_def = _get_definition key
+          bmp_def.value = value
           @values[bmp_def.bmp] = bmp_def
         end
-      elsif ISO8583.configuration.use_header && _get_hdr_definition(key)
+      elsif _get_hdr_definition(key)
         if value.nil?
           @headers.delete(key)
         else
-          hdr_def              = _get_hdr_definition key
-          hdr_def.value        = value
+          hdr_def = _get_hdr_definition key
+          hdr_def.value = value
           @headers[hdr_def.bmp] = hdr_def
         end
       else
@@ -172,11 +174,11 @@ module ISO8583
     def [](key)
       if _get_definition key
         bmp_def = _get_definition key
-        bmp     = @values[bmp_def.bmp]
+        bmp = @values[bmp_def.bmp]
         bmp ? bmp.value : nil
-      elsif ISO8583.configuration.use_header && _get_hdr_definition(key)
+      elsif _get_hdr_definition(key)
         hdr_def = _get_hdr_definition key
-        bmp     = @headers[hdr_def.bmp]
+        bmp = @headers[hdr_def.bmp]
         bmp ? bmp.value : nil
       else
         raise ISO8583Exception.new "no definition for field: #{key}"
@@ -184,19 +186,13 @@ module ISO8583
     end
 
     # Retrieve the byte representation of the bitmap.
-    def to_b
-      order = {
-        mti: ISO8583.configuration.mti_position,
-        bitmap: ISO8583.configuration.bitmap_position,
-        message: ISO8583.configuration.message_position
-      }
-      order[:header] = ISO8583.configuration.header_position if ISO8583.configuration.use_header
-      
+    def to_b     
       sections = _body
-      order.sort_by { |_k, v| v }
-           .map { |k, _v| k }
-           .reduce("".force_encoding('ASCII-8BIT')) do |cum, section|
-        cum += sections[section].force_encoding('ASCII-8BIT')
+      self.class.order
+          .map { |k, _v| k }
+          .reduce("".force_encoding('ASCII-8BIT')) do |cum, section|
+        content = sections[section]
+        cum += content.force_encoding('ASCII-8BIT')
       end
     end
 
@@ -249,8 +245,9 @@ module ISO8583
       ret = Hash.new
       ret[:mti] = self.class._mti_format.encode(mti)
       ret[:header] = _header_body if ISO8583.configuration.use_header
+      ret[:bitmap_and_message] = _bitmap_n_message_body
 
-      ret.merge(_bitmap_n_message_body)
+      ret
     end
 
     def _header_body
@@ -267,11 +264,11 @@ module ISO8583
       message = "".force_encoding('ASCII-8BIT')
       @values.sort.each do |key, value|
         bitmap.set(key)
-        message << value.encode
+        message << value.encode.force_encoding('ASCII-8BIT')
       end
       bitmap_bytes = bitmap.to_bytes
 
-      { bitmap: bitmap_bytes, message: message }
+      bitmap_bytes + message
     end
 
     def _get_definition(key) #:nodoc:
@@ -291,7 +288,7 @@ module ISO8583
     # return [mti_num, mti_value] for key being either
     # mti_num or mti_value
     def _get_mti_definition(key)
-      num_hash,name_hash = self.class._mti_definitions
+      num_hash, name_hash = self.class._mti_definitions
       if num_hash[key]
         [key, num_hash[key]]
       elsif name_hash[key]
@@ -341,7 +338,7 @@ module ISO8583
         @mtis_v ||= {}
         @mtis_n ||= {}
         @mtis_v[value] = name
-        @mtis_n[name]  = value
+        @mtis_n[name] = value
       end
 
       # Define a bitmap in the message
@@ -370,12 +367,12 @@ module ISO8583
 
         field = field.dup
         field.name = name
-        field.bmp  = bmp
+        field.bmp = bmp
         _handle_opts(field, opts) if opts
         
         bmp_def = BMP.new bmp, name, field
 
-        @defs[bmp]  = bmp_def
+        @defs[bmp] = bmp_def
       end
 
       # Define a headers
@@ -404,12 +401,12 @@ module ISO8583
 
         field = field.dup
         field.name = name
-        field.bmp  = hdr
+        field.bmp = hdr
         _handle_opts(field, opts) if opts
 
         hdr_def = BMP.new hdr, name, field
 
-        @hdr_defs[hdr]  = hdr_def
+        @hdr_defs[hdr] = hdr_def
       end
 
       # Create an alias to access bitmaps directly using a method.
@@ -443,30 +440,65 @@ module ISO8583
           # @values[bmp] = bmp_def
         }
       end
+
+      # Return render order as specified in configuration
+      def order
+        order = {
+          mti: ISO8583.configuration.mti_position,
+          bitmap_and_message: ISO8583.configuration.bitmap_and_message_position
+        }
+        order[:header] = ISO8583.configuration.header_position if ISO8583.configuration.use_header
+
+        order.sort_by { |_k, v| v }
+      end
       
       # Parse the bytes `str` returning a message of the defined type.
       def parse(str)
         str = str.force_encoding('ASCII-8BIT')
         message = self.new
 
-        rest = str
-        _hdr_definitions.each do |key, bmp|
+        parsers = {
+          mti: "_parse_mti",
+          header: "_parse_header",
+          bitmap_and_message: "_parse_bitmap_and_message"
+        }
+
+        order.map { |k, _v| k }
+             .reduce("".force_encoding('ASCII-8BIT')) do |cum, section|
+          puts "parsing #{section}"
+          message, str = self.send(parsers[section], message, str)
+        end
+
+        message
+      end
+
+      def _parse_mti(message, str)
+        message.mti, str = _mti_format.parse(str)
+        
+        [message, str]
+      end
+
+      def _parse_header(message, str)
+        _hdr_definitions&.each do |key, bmp|
           header_len = bmp.field.length
-          value = rest.slice!(0...header_len)
+          value = str.slice!(0...header_len)
           message[key] = value
         end
 
-        message.mti, rest = _mti_format.parse(str)
+        [message, str]
+      end
 
-        bmp, rest = Bitmap.parse(rest)
+      def _parse_bitmap_and_message(message, str)
+        bmp, str = Bitmap.parse(str)
         bmp.each do |bit|
           next if bit == 1
 
-          bmp_def      = _definitions[bit]
-          value, rest  = bmp_def.field.parse(rest)
+          bmp_def = _definitions[bit]
+          value, str = bmp_def.field.parse(str)
           message[bit] = value
         end
-        message
+
+        [message, str]
       end
       
       # access the mti definitions applicable to the Message
@@ -523,8 +555,8 @@ module ISO8583
     attr_accessor :value
 
     def initialize(bmp, name, field)
-      @bmp   = bmp
-      @name  = name
+      @bmp = bmp
+      @name = name
       @field = field
     end
 
