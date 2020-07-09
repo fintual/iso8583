@@ -30,10 +30,10 @@ me directly (tim@kuriositaet.de).
 
 ## Adapted by Fintual
 
-You may configure the gem using an initializer with the following abailable settings
+You may configure the gem using an initializer with the following available settings
 ```ruby
 ISO8583.configure do |config|
-  config.use_header = false # if you want to use include header in your message
+  config.use_header = false # if you want to include header in your message
   config.mti_position = 0
   config.header_position = 1
   config.bitmap_position = 2
@@ -66,7 +66,7 @@ module ISO8583
     def initialize(mti = nil)
       super(mti)
 
-			# setup default header values
+      # setup default header values
       self['H0'] = "ISO"
       self['H1'] = "03"
       self['H2'] = "20"
@@ -78,7 +78,7 @@ module ISO8583
 end
 
 # Parse str message
-ISO8583::NetworkControlMessage.parse(message)
+message = ISO8583::NetworkControlMessage.parse(message)
 
 # Create new message with mti 800
 message = ISO8583::NetworkControlMessage.new 800
