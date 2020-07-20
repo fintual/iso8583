@@ -4,6 +4,10 @@ require 'test/unit'
 include ISO8583
 
 class BitmapTests < Test::Unit::TestCase
+  def setup
+    ISO8583.configuration = Configuration.new
+  end
+
   def test_create_empty
     b = Bitmap.new
     assert_equal(b.to_s.size, 64, "proper length: 64")
@@ -87,5 +91,21 @@ class BitmapTests < Test::Unit::TestCase
     }
     assert_equal 20, arr.first
   end
+
+  def test_hex_parse
+    ISO8583.configure do |config|
+      config.use_hex_bitmap = true
+    end
+
+    tst = "6000000000001000"
+    bmp = Bitmap.new tst
+    arr = []
+    first = bmp.each do |bit|
+      arr.push bit
+    end
+
+    assert_equal [2, 3, 52], arr
+  end
 end
+
 

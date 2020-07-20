@@ -20,6 +20,7 @@ class MessageMetaclassTest < Test::Unit::TestCase
     bs = t.to_b
     assert_equal expected, bs
   end
+
   def test_len_prefix
     t = TestMessage2.new
     t.mti = 1100

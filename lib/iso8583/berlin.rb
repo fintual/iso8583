@@ -73,10 +73,7 @@ if __FILE__==$0
   mes = ISO8583::BerlinMessage.new
   mes.mti = 1110
   mes[2] = 474747474747
-  mes["Processing Code"] = "123456"
-
-  pan = mes["Primary Account Number (PAN)"]
-  #mes.pan = 47474747474747
+  mes[3] = "123456"
 
   #puts mes.pan
   puts mes.to_b

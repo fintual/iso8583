@@ -37,6 +37,7 @@ ISO8583.configure do |config|
   config.mti_position = 0
   config.header_position = 1
   config.bitmap_and_message_position = 2
+  config.use_hex_bitmap = false # if you want to output and parse bitmap as hex
 end
 ```
 

@@ -217,4 +217,17 @@ END
 
     assert_equal "ISO011100@\000\000\000\000\000\000\00012474747474747", mes.to_b
   end
+
+  def test_hex_bitmap
+    ISO8583.configure do |config|
+      config.use_hex_bitmap = true
+    end
+
+    mes = BerlinMessage.new 1100
+    mes.pan = 474747474747
+    mes['H0'] = "ISO"
+    mes['H1'] = 1
+
+    assert_equal "1100400000000000000012474747474747", mes.to_b    
+  end
 end

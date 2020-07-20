@@ -54,7 +54,7 @@ module ISO8583
       self[i] = false
     end
 
-    # Generate the bytes representing this bitmap.
+    # Generate the bytes in ASCII representing this bitmap.
     def to_bytes
       arr = [self.to_s]
       # tricky and ugly, setting bit[1] only when generating to_s...
@@ -62,6 +62,11 @@ module ISO8583
       arr.pack("B#{count}")
     end
     alias_method :to_b, :to_bytes
+
+    # Generate bitmap hex representation
+    def to_hex
+      to_bytes.unpack("H*")&.first
+    end
 
     # Generate a String representation of this bitmap in the form:
     #	01001100110000011010110110010100100110011000001101011011001010
@@ -82,13 +87,14 @@ module ISO8583
       str
     end
 
-
     private
 
     def initialize_from_message(message)
-      bmp = message.unpack("B64")[0]
+      trans_message = message
+      trans_message = [trans_message].pack("H*") if ISO8583.configuration.use_hex_bitmap
+      bmp = trans_message.unpack("B64")[0]
       if bmp[0,1] == "1"
-        bmp = message.unpack("B128")[0]
+        bmp = trans_message.unpack("B128")[0]
       end
 
       0.upto(bmp.length-1) do |i|

@@ -266,9 +266,9 @@ module ISO8583
         bitmap.set(key)
         message << value.encode.force_encoding('ASCII-8BIT')
       end
-      bitmap_bytes = bitmap.to_bytes
+      bitmap_s = ISO8583.configuration.use_hex_bitmap ? bitmap.to_hex : bitmap.to_bytes
 
-      bitmap_bytes + message
+      bitmap_s + message
     end
 
     def _get_definition(key) #:nodoc:
