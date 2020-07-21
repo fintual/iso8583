@@ -107,7 +107,9 @@ module ISO8583
       # after the bitmap is taken away.
       def parse(str)
         bmp  = Bitmap.new(str)
-        rest = bmp[1] ? str[16, str.length] : str[8, str.length]
+        base_bmp_length = ISO8583.configuration.use_hex_bitmap ? 2 : 1
+        bmp_length = bmp[1] ? base_bmp_length * 16 : base_bmp_length * 8
+        rest = str[bmp_length, str.length]
         [ bmp, rest ]
       end
     end
