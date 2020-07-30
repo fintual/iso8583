@@ -454,7 +454,7 @@ module ISO8583
       
       # Parse the bytes `str` returning a message of the defined type.
       def parse(str)
-        str = str.force_encoding('ASCII-8BIT')
+        str = str.dup.force_encoding('ASCII-8BIT')
         message = self.new
 
         parsers = {
@@ -465,7 +465,6 @@ module ISO8583
 
         order.map { |k, _v| k }
              .reduce("".force_encoding('ASCII-8BIT')) do |cum, section|
-          puts "parsing #{section}"
           message, str = self.send(parsers[section], message, str)
         end
 
