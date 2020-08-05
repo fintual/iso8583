@@ -69,6 +69,9 @@ module ISO8583
   # [+YYMMCodec+]         encodes Time, Datetime or String to the described date format (exp date), 
   #                       checking that it is a valid date. Decodes to a DateTime instance, decoding
   #                       and encoding perform validity checks!
+  # [+YYMMDDCodec+]       encodes Time, Datetime or String to the described date format (exp date), 
+  #                       checking that it is a valid date. Decodes to a DateTime instance, decoding
+  #                       and encoding perform validity checks!
   #
   class Codec
     attr_accessor :encoder
@@ -218,5 +221,6 @@ module ISO8583
   YYMMDDhhmmssCodec = _date_codec("%y%m%d%H%M%S")
   YYMMCodec         = _date_codec("%y%m")
   MMDDCodec         = _date_codec("%m%d")
+  YYMMDDCodec       = _date_codec("%y%m%d")
 
 end

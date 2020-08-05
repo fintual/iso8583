@@ -81,7 +81,7 @@ class FieldTest < Test::Unit::TestCase
     assert_equal "0912", YYMMCodec.encode("0912")
   end
 
-  def test_YMMCodec
+  def test_MMDDCodec
     dt = MMDDCodec.decode "0812"
     assert_equal DateTime, dt.class
     assert_equal 8, dt.month
@@ -99,6 +99,25 @@ class FieldTest < Test::Unit::TestCase
     t = Time.new(2002, 10, 31, 2, 2, 2, "+02:00")
     assert_equal "1031", MMDDCodec.encode(t)
   end
+
+  def test_YYMMDDCodec
+    dt = YYMMDDCodec.decode "081223"
+    assert_equal DateTime, dt.class
+    assert_equal 2008, dt.year
+    assert_equal 12, dt.month
+    assert_equal 23, dt.day
+
+    assert_raise(ISO8583Exception) {
+      dt = YYMMDDCodec.decode "091301"
+    }
+    
+    assert_raise(ISO8583Exception) {
+      dt = YYMMDDCodec.encode "091301"
+    }
+
+    assert_equal "091214", YYMMDDCodec.encode("091214")
+  end
+
   def test_A_Codec
     assert_raise(ISO8583Exception) {
       dt = A_Codec.encode "!!!"
