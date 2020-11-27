@@ -58,19 +58,19 @@ module ISO8583
   # [+Null_Codec+]        passes anything along untouched.
   # [<tt>Track2</tt>]     rudimentary check that string conforms to Track2
   # [+MMDDhhmmssCodec+]   encodes Time, Datetime or String to the described date format, checking 
-  #                       that it is a valid date. Decodes to a DateTime instance, decoding and 
+  #                       that it is a valid date. Decodes to a Time instance, decoding and 
   #                       encoding perform validity checks!
   # [+MMDDCodec+]   encodes Time, Datetime or String to the described date format, checking 
-  #                       that it is a valid date. Decodes to a DateTime instance, decoding and 
+  #                       that it is a valid date. Decodes to a Time instance, decoding and 
   #                       encoding perform validity checks!
   # [+YYMMDDhhmmssCodec+] encodes Time, Datetime or String to the described date format, checking 
-  #                       that it is a valid date. Decodes to a DateTime instance, decoding and 
+  #                       that it is a valid date. Decodes to a Time instance, decoding and 
   #                       encoding perform validity checks!
   # [+YYMMCodec+]         encodes Time, Datetime or String to the described date format (exp date), 
-  #                       checking that it is a valid date. Decodes to a DateTime instance, decoding
+  #                       checking that it is a valid date. Decodes to a Time instance, decoding
   #                       and encoding perform validity checks!
   # [+YYMMDDCodec+]       encodes Time, Datetime or String to the described date format (exp date), 
-  #                       checking that it is a valid date. Decodes to a DateTime instance, decoding
+  #                       checking that it is a valid date. Decodes to a Time instance, decoding
   #                       and encoding perform validity checks!
   #
   class Codec
@@ -199,7 +199,7 @@ module ISO8583
               date.strftime(fmt)
             when String
               begin
-                dt = DateTime.strptime(date, fmt)
+                dt = Time.strptime(date, fmt)
                 dt.strftime(fmt)
               rescue
                 raise ISO8583Exception.new("Invalid format encoding: #{date}, must be #{fmt}.")
@@ -211,7 +211,7 @@ module ISO8583
     }
     c.decoder = lambda {|str|
       begin
-        DateTime.strptime(str, fmt)
+        Time.strptime(str, fmt)
       rescue
         raise ISO8583Exception.new("Invalid format decoding: #{str}, must be #{fmt}.")
       end

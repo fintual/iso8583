@@ -6,11 +6,11 @@ include ISO8583
 class FieldTest < Test::Unit::TestCase
   def test_hhmmssCodec
     dt = HhmmssCodec.decode "121212"
-    assert_equal DateTime, dt.class
+    assert_equal Time, dt.class
     assert_equal 12, dt.hour
     assert_equal 12, dt.min
     assert_equal 12, dt.sec
-    assert_equal DateTime, dt.class
+    assert_equal Time, dt.class
     
     assert_raise(ISO8583Exception) {
       dt = HhmmssCodec.decode "261212"
@@ -24,13 +24,13 @@ class FieldTest < Test::Unit::TestCase
   end
   def test_MMDDhhmmssCodec
     dt = MMDDhhmmssCodec.decode "1212121212"
-    assert_equal DateTime, dt.class
+    assert_equal Time, dt.class
     assert_equal 12, dt.month
     assert_equal 12, dt.day
     assert_equal 12, dt.hour
     assert_equal 12, dt.min
     assert_equal 12, dt.sec
-    assert_equal DateTime, dt.class
+    assert_equal Time, dt.class
 
     assert_raise(ISO8583Exception) {
       dt = MMDDhhmmssCodec.decode "1312121212"
@@ -45,7 +45,7 @@ class FieldTest < Test::Unit::TestCase
 
   def test_YYMMDDhhmmssCodec
     dt = YYMMDDhhmmssCodec.decode "081212121212"
-    assert_equal DateTime, dt.class
+    assert_equal Time, dt.class
     assert_equal 2008, dt.year
     assert_equal 12, dt.month
     assert_equal 12, dt.day
@@ -66,7 +66,7 @@ class FieldTest < Test::Unit::TestCase
 
   def test_YYMMCodec
     dt = YYMMCodec.decode "0812"
-    assert_equal DateTime, dt.class
+    assert_equal Time, dt.class
     assert_equal 2008, dt.year
     assert_equal 12, dt.month
 
@@ -83,7 +83,7 @@ class FieldTest < Test::Unit::TestCase
 
   def test_MMDDCodec
     dt = MMDDCodec.decode "0812"
-    assert_equal DateTime, dt.class
+    assert_equal Time, dt.class
     assert_equal 8, dt.month
     assert_equal 12, dt.day
 
@@ -102,7 +102,7 @@ class FieldTest < Test::Unit::TestCase
 
   def test_YYMMDDCodec
     dt = YYMMDDCodec.decode "081223"
-    assert_equal DateTime, dt.class
+    assert_equal Time, dt.class
     assert_equal 2008, dt.year
     assert_equal 12, dt.month
     assert_equal 23, dt.day
