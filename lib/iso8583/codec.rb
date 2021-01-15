@@ -13,7 +13,7 @@ module ISO8583
   # your own Codec sooner or later. The codecs used by Field instances are
   # typically instances of Codec, it may or may not be usefull to subclass
   # Codec.
-  # 
+  #
   # Say, for example, a text field needs to be encoded in EBCDIC in the
   # message, this is how a corresponding codec would be constructed:
   #
@@ -42,34 +42,34 @@ module ISO8583
   # See also: Field, link:files/lib/fields_rb.html
   #
   # The following codecs are already implemented:
-  # [+ASCII_Number+]      encodes either a Number or String representation of 
-  #                       a number to the ASCII represenation of the number, 
+  # [+ASCII_Number+]      encodes either a Number or String representation of
+  #                       a number to the ASCII represenation of the number,
   #                       decodes ASCII  numerals to a number
   # [+A_Codec+]           passes through ASCII string checking they conform to [A-Za-z]
-  #                       during encoding, no validity check during decoding. 
+  #                       during encoding, no validity check during decoding.
   # [+AN_Codec+]          passes through ASCII string checking they conform to [A-Za-z0-9]
-  #                       during encoding, no validity check during decoding. 
-  # [+ANP_Codec+]         passes through ASCII string checking they conform to [A-Za-z0-9 ] 
-  #                       during encoding, no validity check during decoding. 
+  #                       during encoding, no validity check during decoding.
+  # [+ANP_Codec+]         passes through ASCII string checking they conform to [A-Za-z0-9 ]
+  #                       during encoding, no validity check during decoding.
   # [+ANS_Codec+]         passes through ASCII string checking they conform to [\x20-\x7E]
   #                       during encoding, no validity check during decoding.
-  # [BE_U16]              16-bit unsigned, network (big-endian) byte order 
-  # [BE_U32]              32-bit unsigned, network (big-endian) byte order  
+  # [BE_U16]              16-bit unsigned, network (big-endian) byte order
+  # [BE_U32]              32-bit unsigned, network (big-endian) byte order
   # [+Null_Codec+]        passes anything along untouched.
   # [<tt>Track2</tt>]     rudimentary check that string conforms to Track2
-  # [+MMDDhhmmssCodec+]   encodes Time, Datetime or String to the described date format, checking 
-  #                       that it is a valid date. Decodes to a Time instance, decoding and 
+  # [+MMDDhhmmssCodec+]   encodes Time, Datetime or String to the described date format, checking
+  #                       that it is a valid date. Decodes to a Time instance, decoding and
   #                       encoding perform validity checks!
-  # [+MMDDCodec+]   encodes Time, Datetime or String to the described date format, checking 
-  #                       that it is a valid date. Decodes to a Time instance, decoding and 
+  # [+MMDDCodec+]   encodes Time, Datetime or String to the described date format, checking
+  #                       that it is a valid date. Decodes to a Time instance, decoding and
   #                       encoding perform validity checks!
-  # [+YYMMDDhhmmssCodec+] encodes Time, Datetime or String to the described date format, checking 
-  #                       that it is a valid date. Decodes to a Time instance, decoding and 
+  # [+YYMMDDhhmmssCodec+] encodes Time, Datetime or String to the described date format, checking
+  #                       that it is a valid date. Decodes to a Time instance, decoding and
   #                       encoding perform validity checks!
-  # [+YYMMCodec+]         encodes Time, Datetime or String to the described date format (exp date), 
+  # [+YYMMCodec+]         encodes Time, Datetime or String to the described date format (exp date),
   #                       checking that it is a valid date. Decodes to a Time instance, decoding
   #                       and encoding perform validity checks!
-  # [+YYMMDDCodec+]       encodes Time, Datetime or String to the described date format (exp date), 
+  # [+YYMMDDCodec+]       encodes Time, Datetime or String to the described date format (exp date),
   #                       checking that it is a valid date. Decodes to a Time instance, decoding
   #                       and encoding perform validity checks!
   #
@@ -150,7 +150,7 @@ module ISO8583
     str
   }
   ANS_Codec.decoder = PASS_THROUGH_DECODER
-  
+
   BE_U16 = Codec.new
   BE_U16.encoder = lambda {|num|
     raise ISO8583Exception.new("Invalid value: #{num} must be 0<= X <=2^16-1") unless 0 <= num && num <= 2**16-1
@@ -174,7 +174,7 @@ module ISO8583
   }
   Null_Codec.decoder = lambda {|str|
     str.gsub(/\000*$/, '')
-  } 
+  }
 
   Track2 = Codec.new
   Track2.encoder = lambda{|track2|
@@ -191,7 +191,7 @@ module ISO8583
   }
   Track2.decoder = PASS_THROUGH_DECODER
 
-  def self._date_codec(fmt) 
+  def self._date_codec(fmt)
     c = Codec.new
     c.encoder = lambda {|date|
       enc = case date
@@ -199,19 +199,19 @@ module ISO8583
               date.strftime(fmt)
             when String
               begin
-                dt = Time.strptime(date, fmt)
+                dt = Time.strptime(date + " UTC", fmt + " %Z")
                 dt.strftime(fmt)
               rescue
                 raise ISO8583Exception.new("Invalid format encoding: #{date}, must be #{fmt}.")
               end
-            else  
+            else
               raise ISO8583Exception.new("Don't know how to encode: #{date.class} to a time.")
             end
       return enc
     }
     c.decoder = lambda {|str|
       begin
-        Time.strptime(str, fmt)
+        Time.strptime(str + " UTC", fmt + " %Z")
       rescue
         raise ISO8583Exception.new("Invalid format decoding: #{str}, must be #{fmt}.")
       end
